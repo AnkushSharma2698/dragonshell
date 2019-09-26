@@ -6,7 +6,7 @@
 #include <signal.h>
 #include "execution_handler.h"
 
-std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"};
+std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
 
 std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
     char* cstr = new char[str.size() + 1];
@@ -27,11 +27,11 @@ std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
 
 // print method for a vector < -- Make sure to delete this code once you are done
 void printer(std::vector<std::string> const &input) {
-for (int i = 0; i < input.size(); i++) {
-std::cout << i;
-std::cout << input.at(i) << ' ';
-}
-std::cout << '\n';
+    for (int i = 0; i < input.size(); i++) {
+        std::cout << i;
+        std::cout << input.at(i) << ' ';
+        }
+        std::cout << '\n';
 }
 
 // Combine fork and execve if u want to run an external program
@@ -48,8 +48,9 @@ void cd(std::string str_path) {
 };
 
 void pwd() {
-    char s[100];
+    char* s = new char[100];
     std::cout << getcwd(s,100) << "\n";
+    delete[] s; // cleaning mem
 };
 
 void show$PATH() {
@@ -93,6 +94,20 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     // Kill any running processes
 }
 
+int checkPATH(std::vector<std::string> &instructions) {
+    std::cout << "CHECKING VS THE PATH" << "\n";
+    int pid;
+    char *argv[] = {"readme.md", NULL};
+    char *env[] = {NULL};
+    if ((pid = fork()) == -1)
+        perror("fork error");
+    else if (pid == 0)
+        if (execve(PATH[0].c_str(), argv, env) == -1) {
+            return 0;
+        }
+    return 1;
+}
+
 
 // DRIVER FOR THE EXECUTION STEP
 int executeInstructions(std::vector<std::string> &instructions) {
@@ -110,7 +125,11 @@ int executeInstructions(std::vector<std::string> &instructions) {
         exitDragonShell();
     }
     else {
-        std::cout << "dragonshell: Command not Found" << "\n";
+        // Check if the command exists in the PATH, else command will not be found
+        int i = checkPATH(instructions); // TODO figure out this function
+        if (i == 0) {
+            std::cout << "dragonshell: Command not Found" << "\n";
+        }
     }
     return 1;
 }
