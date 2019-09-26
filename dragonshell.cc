@@ -30,7 +30,7 @@ std::vector<std::string> tokenize(const std::string &str, const char *delim) {
   return tokens;
 }
 
-// print method for a vector
+// print method for a vector < -- Make sure to delete this code once you are done
 void print(std::vector<std::string> const &input) {
     for (int i = 0; i < input.size(); i++) {
         std::cout << i;
@@ -57,9 +57,13 @@ int main(int argc, char **argv) {
 
       // Get user input
       getline(std::cin, command);
-
-      // Parse the input and send it to check if it is a valid command
-      std::vector<std::string> tokenized_command = tokenize(command, ";");
-      execute(tokenized_command);
+      if(std::cin.eof()) { // Handling for ctrl + D
+          std::cout << "\n"; // Formatting
+          exitDragonShell();
+      } else {
+          // Parse the input and send it to check if it is a valid command
+          std::vector<std::string> tokenized_command = tokenize(command, ";");
+          execute(tokenized_command);
+      }
   }
 }
