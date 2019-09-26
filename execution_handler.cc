@@ -7,6 +7,7 @@
 #include "execution_handler.h"
 
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
+std::vector<pid_t> processes = {};
 
 std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
     char* cstr = new char[str.size() + 1];
@@ -88,23 +89,60 @@ void appendToPath(std::vector<std::string> &append) {
 
 void exitDragonShell() { // TODO ask about how exit will close the child processes and such before terminating itself.
     std::cout << "Exiting" << "\n";
-    // Get the pid of the process I want to exit
+    // Kill any running processes
+    for (int i = 0; i< processes.size();i++) {
+        kill(processes[i], SIGTERM);
+    }
+    // Get the pid of the main process, and exit that at the end
     pid_t pid = getpid();
     _exit(pid);
-    // Kill any running processes
+}
+
+bool absPath(std::vector<std::string> &instructions) {
+    std::cout <<instructions[0][0] << "\n";
+    if (instructions[0][0] == '/') {
+        std::cout << "THIS IS AN ABS";
+        return true;
+    }
+    return false;
+}
+
+bool relPath(std::vector<std::string> &instructions) {
+    if (instructions[0][0] == '/') {
+        return false;
+    }
+    return true;
 }
 
 int checkPATH(std::vector<std::string> &instructions) {
     std::cout << "CHECKING VS THE PATH" << "\n";
-    int pid;
-    char *argv[] = {"readme.md", NULL};
-    char *env[] = {NULL};
-    if ((pid = fork()) == -1)
-        perror("fork error");
-    else if (pid == 0)
-        if (execve(PATH[0].c_str(), argv, env) == -1) {
-            return 0;
+    // Test if this is a full path and works
+    if (absPath(instructions)) {
+        // Do some stuff
+        // Check
+        pid_t cid = fork();
+        if (cid == -1) {
+            perror("fork error");
+            _exit(1);
         }
+        else if (cid == 0){
+            int ret;
+            char *cmd[] = { (char *)"ls", (char *)"-l", (char *)0 };
+            char *env[] = { (char *)"HOME=/usr/home", (char *)"LOGNAME=home", (char *)0 };
+            ret = execve ("/bin/ls", cmd, env);
+            _exit(0);
+        }
+        else {
+            wait(NULL);
+            return 1;
+        }
+
+    } else if (relPath(instructions)) {
+
+    } else {
+        // Shit dont work
+    }
+    // Test if it is a relative path and is in the PATH
     return 1;
 }
 
@@ -123,6 +161,9 @@ int executeInstructions(std::vector<std::string> &instructions) {
     }
     else if (instructions[0] == "exit") {
         exitDragonShell();
+    } else if (instructions.size() == 0) {
+        // Case where nothing is in the vector
+        return 1;
     }
     else {
         // Check if the command exists in the PATH, else command will not be found
