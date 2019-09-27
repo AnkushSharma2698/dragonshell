@@ -208,7 +208,7 @@ void checkPATH(std::vector<std::string> &instructions) {
 
 
 // DRIVER FOR THE EXECUTION STEP
-int executeInstructions(std::vector<std::string> &instructions) {
+void executeInstructions(std::vector<std::string> &instructions) {
     // Handle enter case with nothing???
     if (instructions[0] == "cd") {
         cd(instructions[1]);
@@ -223,11 +223,9 @@ int executeInstructions(std::vector<std::string> &instructions) {
         exitDragonShell();
     } else if (instructions.size() == 0) {
         // Case where nothing is in the vector
-        return 1;
     }
     else {
         // Check if the command exists in the PATH, else command will not be found
         checkPATH(instructions); // TODO figure out this function
     }
-    return 1;
 }
