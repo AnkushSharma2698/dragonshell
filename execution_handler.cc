@@ -4,6 +4,8 @@
 #include <string>
 #include <unistd.h>
 #include <signal.h>
+#include <fstream>
+#include <sys/stat.h>
 #include "execution_handler.h"
 
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
@@ -98,10 +100,9 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     _exit(pid);
 }
 
+// Basic checkers for path types
 bool absPath(std::vector<std::string> &instructions) {
-    std::cout <<instructions[0][0] << "\n";
     if (instructions[0][0] == '/') {
-        std::cout << "THIS IS AN ABS";
         return true;
     }
     return false;
@@ -114,36 +115,88 @@ bool relPath(std::vector<std::string> &instructions) {
     return true;
 }
 
-int checkPATH(std::vector<std::string> &instructions) {
-    std::cout << "CHECKING VS THE PATH" << "\n";
-    // Test if this is a full path and works
-    if (absPath(instructions)) {
-        // Do some stuff
-        // Check
-        pid_t cid = fork();
-        if (cid == -1) {
-            perror("fork error");
-            _exit(1);
-        }
-        else if (cid == 0){
-            int ret;
-            char *cmd[] = { (char *)"ls", (char *)"-l", (char *)0 };
-            char *env[] = { (char *)"HOME=/usr/home", (char *)"LOGNAME=home", (char *)0 };
-            ret = execve ("/bin/ls", cmd, env);
-            _exit(0);
-        }
-        else {
-            wait(NULL);
-            return 1;
-        }
+// Pointer to first position of the cmd args
+void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
+    std::vector<std::string> first_arg = tokenizer(args[0], delim);
+    cmd[0] = (char *)first_arg[first_arg.size() - 1].c_str();
 
-    } else if (relPath(instructions)) {
-
-    } else {
-        // Shit dont work
+    // Add in any other required arguments
+    for (int i = 1; i < args.size() + 1; i++) {
+        cmd[i] = (char * )args[i].c_str();
     }
-    // Test if it is a relative path and is in the PATH
-    return 1;
+    // Add NULL at the end
+    cmd[args.size()] = (char *) 0;
+
+}
+
+// Run the external commands made by the user
+void external_cmd(std::vector<std::string> &instructions, const char *delim) {
+    pid_t cid = fork();
+    if (cid == -1) {
+        perror("fork error");
+        return;
+    } else if (cid == 0){
+        char * exe_cmd[instructions.size() + 1];
+        set_args(instructions, exe_cmd, delim); // Set args for the cmd
+        char *env[] = {NULL};
+
+        int ret;
+        ret = execve (instructions[0].c_str(), exe_cmd, env);
+        if (ret == -1) {
+            perror("Command Failed");
+        }
+        _exit(0);
+    }
+    else {
+        processes.push_back(cid);
+        wait(NULL);
+    }
+}
+
+// Check if a file at a given path exists
+bool exists(std::string path) {
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void run_abs_cmd(std::vector<std::string> &instructions) {
+    int cmd_exists = 0;
+    if (exists(instructions[0])) {
+        external_cmd(instructions, "/");
+        cmd_exists = 1;
+    }
+    if (cmd_exists == 0) {
+        std::cout << "dragonshell: Command not Found" << "\n";
+    }
+}
+
+void run_rel_cmd(std::vector<std::string> &instructions) {
+    int cmd_exists = 0;
+    std::string s = instructions[0];
+    for (int i=0; i< PATH.size(); i++) {
+        std::string temp_path = PATH[i];
+        instructions[0] = temp_path.append(s);
+        if (exists(instructions[0])) {
+            external_cmd(instructions, "/");
+            cmd_exists = 1;
+        };
+    }
+    if (cmd_exists == 0) {
+        std::cout << "dragonshell: Command not Found" << "\n";
+    }
+}
+
+
+void checkPATH(std::vector<std::string> &instructions) {
+    if (absPath(instructions)) {
+        run_abs_cmd(instructions);
+    } else if (relPath(instructions)) {
+        run_rel_cmd(instructions);
+    }
 }
 
 
@@ -167,10 +220,7 @@ int executeInstructions(std::vector<std::string> &instructions) {
     }
     else {
         // Check if the command exists in the PATH, else command will not be found
-        int i = checkPATH(instructions); // TODO figure out this function
-        if (i == 0) {
-            std::cout << "dragonshell: Command not Found" << "\n";
-        }
+        checkPATH(instructions); // TODO figure out this function
     }
     return 1;
 }
