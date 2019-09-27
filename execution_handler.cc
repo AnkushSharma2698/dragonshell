@@ -163,6 +163,7 @@ bool exists(std::string path) {
     }
 }
 
+// Runs absolute path commands
 void run_abs_cmd(std::vector<std::string> &instructions) {
     int cmd_exists = 0;
     if (exists(instructions[0])) {
@@ -174,6 +175,7 @@ void run_abs_cmd(std::vector<std::string> &instructions) {
     }
 }
 
+// Run relative path commands
 void run_rel_cmd(std::vector<std::string> &instructions) {
     int cmd_exists = 0;
     std::string s = instructions[0];
@@ -195,7 +197,7 @@ void run_rel_cmd(std::vector<std::string> &instructions) {
     }
 }
 
-
+// Check the path that was given by the user
 void checkPATH(std::vector<std::string> &instructions) {
     if (absPath(instructions)) {
         run_abs_cmd(instructions);
