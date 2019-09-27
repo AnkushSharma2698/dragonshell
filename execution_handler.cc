@@ -177,6 +177,11 @@ void run_abs_cmd(std::vector<std::string> &instructions) {
 void run_rel_cmd(std::vector<std::string> &instructions) {
     int cmd_exists = 0;
     std::string s = instructions[0];
+    if (exists(s)) {
+        external_cmd(instructions, "/");
+        cmd_exists = 1;
+        return;
+    }
     for (int i=0; i< PATH.size(); i++) {
         std::string temp_path = PATH[i];
         instructions[0] = temp_path.append(s);
