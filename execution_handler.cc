@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <fstream>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include "execution_handler.h"
 
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
@@ -115,6 +116,34 @@ bool relPath(std::vector<std::string> &instructions) {
     return true;
 }
 
+std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::string> &instructions, std::string delim) {
+    int redirect = -1;
+    for (int i=0; i < instructions.size(); i++) {
+        if (instructions[i] == delim) {
+            instructions.erase(instructions.begin() + i);
+            redirect = i;
+        }
+    }
+    // If after an initial screen, redirect is not -1, return instructions in current state
+    if (redirect != -1) {
+        return {redirect, instructions};
+    }
+
+    // Check for a substring
+    std::vector<std::string> delim_handler_vector;
+    for (int i=0; i< instructions.size(); i++) {
+        if (instructions[i].find(delim) != std::string::npos) {
+            delim_handler_vector = tokenizer(instructions[i], delim.c_str());
+            instructions.erase(instructions.begin() + i);
+            instructions.insert(instructions.end(), delim_handler_vector.begin(), delim_handler_vector.end());
+            redirect = instructions.size() - 1;
+            break;
+
+        }
+    }
+    return {redirect, instructions};
+}
+
 // Pointer to first position of the cmd args
 void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
     std::vector<std::string> first_arg = tokenizer(args[0], delim);
@@ -130,18 +159,15 @@ void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
 }
 
 // Run the external commands made by the user
-void external_cmd(std::vector<std::string> &instructions, const char *delim) {
+void general_cmd(std::vector<std::string> &instructions, char **cmd) {
     pid_t cid = fork();
     if (cid == -1) {
         perror("fork error");
         return;
     } else if (cid == 0){
-        char * exe_cmd[instructions.size() + 1];
-        set_args(instructions, exe_cmd, delim); // Set args for the cmd
         char *env[] = {NULL};
-
         int ret;
-        ret = execve (instructions[0].c_str(), exe_cmd, env);
+        ret = execve (instructions[0].c_str(), cmd, env);
         if (ret == -1) {
             perror("Command Failed");
         }
@@ -151,6 +177,55 @@ void external_cmd(std::vector<std::string> &instructions, const char *delim) {
         processes.push_back(cid);
         wait(NULL);
     }
+}
+
+void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd) {
+    pid_t cid = fork();
+    if (cid == -1) {
+        perror("fork error");
+        return;
+    } else if (cid == 0) { // Some special output handling will go down here
+        int fd = open(output_file[0].c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+        if (fd  < 0) {
+            perror("encountered open error");
+        }
+        dup2(fd, 1); // Send the stdout to the file
+
+        close(fd);
+        // Run the execve command
+        char *env[] = {NULL};
+        int ret;
+        ret = execve(instructions[0].c_str(), cmd, env);
+        if (ret == -1) {
+            perror("Command failed");
+        }
+        _exit(0);
+    } else {
+        processes.push_back(cid);
+        wait(NULL);
+    }
+}
+
+// Parse the instructions to exclude the > or |
+std::vector<std::string> set_instructions(std::vector<std::string> &instructions, int position) {
+    std::vector<std::string> new_instructions;
+    for (int i = 0; i < position; i++) {
+        new_instructions.push_back(std::string(instructions[i]));
+    }
+    return new_instructions;
+}
+
+// Set the output around a | or >
+std::vector<std::string> set_output(std::vector<std::string> &instructions, int position) {
+    std::vector<std::string> output;
+    if (instructions.size() < 2) { // If there is nothing after the index of the | or >
+        output.push_back("");
+        return output;
+    }
+    for (int i = position; i < instructions.size(); i++) {
+        output.push_back(instructions[i]);
+    }
+    return output;
 }
 
 // Check if a file at a given path exists
@@ -164,10 +239,19 @@ bool exists(std::string path) {
 }
 
 // Runs absolute path commands
-void run_abs_cmd(std::vector<std::string> &instructions) {
+void run_abs_cmd(std::vector<std::string> &instructions, int redirect) {
     int cmd_exists = 0;
+    char * exe_cmd[instructions.size() + 1];
     if (exists(instructions[0])) {
-        external_cmd(instructions, "/");
+        if (redirect != -1) {
+            std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
+            std::vector<std::string> output_file = set_output(instructions, redirect);
+            set_args(updated_instructions, exe_cmd, "/");
+            run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+        } else { // No special handling needed here
+            set_args(instructions, exe_cmd, "/");
+            general_cmd(instructions, exe_cmd);
+        }
         cmd_exists = 1;
     }
     if (cmd_exists == 0) {
@@ -176,19 +260,36 @@ void run_abs_cmd(std::vector<std::string> &instructions) {
 }
 
 // Run relative path commands
-void run_rel_cmd(std::vector<std::string> &instructions) {
+void run_rel_cmd(std::vector<std::string> &instructions, int redirect) {
     int cmd_exists = 0;
+    char * exe_cmd[instructions.size() + 1];
     std::string s = instructions[0];
-    if (exists(s)) {
-        external_cmd(instructions, "/");
+    if (exists(s)) { // This block checks if the file is in the current working dir
+        if (redirect != -1) {
+            std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
+            std::vector<std::string> output_file = set_output(instructions, redirect);
+            set_args(updated_instructions, exe_cmd, "/");
+            run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+        } else {
+            set_args(instructions, exe_cmd, "/"); // Set args for the cmd
+            general_cmd(instructions, exe_cmd);
+        }
         cmd_exists = 1;
         return;
     }
-    for (int i=0; i< PATH.size(); i++) {
+    for (int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
         std::string temp_path = PATH[i];
         instructions[0] = temp_path.append(s);
         if (exists(instructions[0])) {
-            external_cmd(instructions, "/");
+            if (redirect != -1) {
+                std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
+                std::vector<std::string> output_file = set_output(instructions, redirect);
+                set_args(updated_instructions, exe_cmd, "/");
+                run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+            } else {
+                set_args(instructions, exe_cmd, "/"); // Set args for the cmd
+                general_cmd(instructions, exe_cmd);
+            }
             cmd_exists = 1;
         };
     }
@@ -199,10 +300,12 @@ void run_rel_cmd(std::vector<std::string> &instructions) {
 
 // Check the path that was given by the user
 void checkPATH(std::vector<std::string> &instructions) {
-    if (absPath(instructions)) {
-        run_abs_cmd(instructions);
-    } else if (relPath(instructions)) {
-        run_rel_cmd(instructions);
+    std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // This checks if the command asks for a redirect
+    // Next we will ask the user if a pipe is needed
+    if (absPath(instructions)) { // Run a general command if no redirect needed
+        run_abs_cmd(std::get<1>(tup), std::get<0>(tup));
+    } else if (relPath(instructions)) { // Run a general command if no redirect needed
+        run_rel_cmd(std::get<1>(tup), std::get<0>(tup));
     }
 }
 
@@ -223,9 +326,10 @@ void executeInstructions(std::vector<std::string> &instructions) {
         exitDragonShell();
     } else if (instructions.size() == 0) {
         // Case where nothing is in the vector
+        return;
     }
     else {
         // Check if the command exists in the PATH, else command will not be found
-        checkPATH(instructions); // TODO figure out this function
+        checkPATH(instructions);
     }
 }
