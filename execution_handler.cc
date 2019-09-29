@@ -51,24 +51,6 @@ void cd(std::string str_path) {
     }
 };
 
-void pwd() {
-    char* s = new char[100];
-    std::cout << getcwd(s,100) << "\n";
-    delete[] s; // cleaning mem
-};
-
-void show$PATH() {
-    std::string s = "Current Path: ";
-    for (int i = 0; i < PATH.size();i++) {
-        if (i + 1 == PATH.size()) {
-            s = s + PATH[i];
-        } else {
-            s = s + PATH[i] + ":";
-        }
-    }
-    std::cout << s << "\n";
-}
-
 void appendToPath(std::vector<std::string> &append) {
     // Now that we are in the appending block we must ensure that we are getting adequate values
     // If no $PATH, ensure that we are given a path to overwrite the global $PATH
@@ -101,7 +83,7 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     _exit(pid);
 }
 
-// Basic checkers for path types
+// Check if the given path is an absolute path
 bool absPath(std::vector<std::string> &instructions) {
     if (instructions[0][0] == '/') {
         return true;
@@ -109,11 +91,23 @@ bool absPath(std::vector<std::string> &instructions) {
     return false;
 }
 
+// Check if the given path is a relative path
 bool relPath(std::vector<std::string> &instructions) {
     if (instructions[0][0] == '/') {
         return false;
     }
     return true;
+}
+
+// Check if the given instructions contain a pipe symbol
+int needsPipe(std::vector<std::string> &instructions) {
+    int needs_pipe = -1;
+    for (int i=0; i < instructions.size(); i++) {
+        if (instructions[i] == "|") {
+            needs_pipe = i;
+        }
+    }
+    return needs_pipe;
 }
 
 std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::string> &instructions, std::string delim) {
@@ -179,6 +173,42 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd) {
     }
 }
 
+
+void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &pipe_out,char **in_cmd, char **out_cmd) {
+    pid_t pid;
+    if ((pid = fork()) < 0) perror("fork error!");
+    if (pid == 0) {
+        pid_t pipe_pid;
+        int fd[2];
+        if (pipe(fd) < 0) perror("pipe error!");
+        if ((pipe_pid = fork()) < 0) perror("fork error!");
+        if (pipe_pid == 0) {
+            // add the stdout of this code to the pipe
+            char *env[] = {NULL};
+            close(fd[0]); // No reading
+            dup2(fd[1], STDOUT_FILENO);
+            close(fd[1]);
+            if (execve(pipe_in[0].c_str(), in_cmd, env) < 0) {
+                perror("stdout error!");
+            }
+            _exit(0);
+        } else {
+            // In this parent is where we want to read the stdout from the child
+            char *env[] = {NULL};
+            close(fd[1]); // No writing
+            dup2(fd[0], STDIN_FILENO); // stdin = fd[0]
+            close(fd[0]);
+            if (execve(pipe_out[0].c_str(), out_cmd, env) < 0) {
+                perror("stdin error!");
+            }
+            _exit(0);
+        }
+    } else {
+        processes.push_back(pid);
+        wait(NULL);
+    }
+}
+
 void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd) {
     pid_t cid = fork();
     if (cid == -1) {
@@ -192,7 +222,6 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         dup2(fd, 1); // Send the stdout to the file
 
         close(fd);
-        // Run the execve command
         char *env[] = {NULL};
         int ret;
         ret = execve(instructions[0].c_str(), cmd, env);
@@ -228,6 +257,69 @@ std::vector<std::string> set_output(std::vector<std::string> &instructions, int 
     return output;
 }
 
+void pwd(int redirect, std::vector<std::string> &instructions) {
+    if (redirect != -1) { // Handle redirect case
+        pid_t cid = fork();
+        if (cid == -1) {
+            perror("fork error");
+            return;
+        } else if (cid == 0) { // Some special output handling will go down here
+            char* s = new char[100];
+            std::vector<std::string> output_file = set_output(instructions, redirect);
+            int fd = open(output_file[0].c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+            if (fd  < 0) {
+                perror("encountered open error");
+            }
+            dup2(fd, 1); // Send the stdout to the file
+            close(fd);
+            std::cout << getcwd(s,100) << "\n";
+            delete[] s; // cleaning mem
+            _exit(0);
+        } else {
+            processes.push_back(cid);
+            wait(NULL);
+        }
+    } else {
+        char* s = new char[100];
+        std::cout << getcwd(s,100) << "\n";
+        delete[] s; // cleaning mem
+    }
+
+};
+
+void show$PATH(int redirect, std::vector<std::string> &instructions) {
+    std::string s = "Current Path: ";
+    for (int i = 0; i < PATH.size();i++) {
+        if (i + 1 == PATH.size()) {
+            s = s + PATH[i];
+        } else {
+            s = s + PATH[i] + ":";
+        }
+    }
+    if (redirect != -1) {
+        pid_t cid = fork();
+        if (cid == -1) {
+            perror("fork error");
+            return;
+        } else if (cid == 0) { // Some special output handling will go down here
+            std::vector<std::string> output_file = set_output(instructions, redirect);
+            int fd = open(output_file[0].c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+            if (fd  < 0) {
+                perror("encountered open error");
+            }
+            dup2(fd, 1); // Send the stdout to the file
+            close(fd);
+            std::cout << s << "\n";
+            _exit(0);
+        } else {
+            processes.push_back(cid);
+            wait(NULL);
+        }
+    } else {
+        std::cout << s << "\n";
+    }
+}
+
 // Check if a file at a given path exists
 bool exists(std::string path) {
     struct stat st;
@@ -238,12 +330,47 @@ bool exists(std::string path) {
     }
 }
 
+std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instructions(std::vector<std::string> &instructions, int pipe_index) {
+    std::vector<std::string> pipe_from;
+    std::vector<std::string> pipe_to;
+
+    // Check if the second half of the pipe statement is an absolute path, if not then we have to make it one
+    std::string s = instructions[pipe_index + 1];
+    if (instructions[pipe_index + 1][0] != '/') {
+        if (exists(instructions[pipe_index + 1]) == false) {
+            for (int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
+                std::string temp_path = PATH[i];
+                instructions[pipe_index + 1] = temp_path.append(s);
+                if (exists(instructions[pipe_index + 1])) {
+                    break;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < pipe_index; i++) {
+        pipe_from.push_back(instructions[i]);
+    }
+    for (int i = pipe_index + 1; i < instructions.size(); i++) {
+        pipe_to.push_back(instructions[i]);
+    }
+    return {pipe_from, pipe_to};
+}
+
 // Runs absolute path commands
-void run_abs_cmd(std::vector<std::string> &instructions, int redirect) {
+void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed) {
     int cmd_exists = 0;
     char * exe_cmd[instructions.size() + 1];
     if (exists(instructions[0])) {
-        if (redirect != -1) {
+        if (pipe_needed != -1) {
+            // We must parse the input accordingly
+            std::tuple<std::vector<std::string>, std::vector<std::string>> pipe_instructions = get_pipe_instructions(instructions, pipe_needed);
+            char * write_cmd[std::get<0>(pipe_instructions).size() + 1 ];
+            char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
+            set_args(std::get<0>(pipe_instructions), write_cmd, "/");
+            set_args(std::get<1>(pipe_instructions), read_cmd, "/");
+            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+        }else if (redirect != -1) {
             std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
             std::vector<std::string> output_file = set_output(instructions, redirect);
             set_args(updated_instructions, exe_cmd, "/");
@@ -260,12 +387,21 @@ void run_abs_cmd(std::vector<std::string> &instructions, int redirect) {
 }
 
 // Run relative path commands
-void run_rel_cmd(std::vector<std::string> &instructions, int redirect) {
+void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed) {
     int cmd_exists = 0;
     char * exe_cmd[instructions.size() + 1];
     std::string s = instructions[0];
     if (exists(s)) { // This block checks if the file is in the current working dir
-        if (redirect != -1) {
+        if (pipe_needed != -1) {
+            // We must parse the input accordingly
+            std::tuple<std::vector<std::string>, std::vector<std::string>> pipe_instructions = get_pipe_instructions(instructions, pipe_needed);
+            char * write_cmd[std::get<0>(pipe_instructions).size() + 1 ];
+            char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
+            set_args(std::get<0>(pipe_instructions), write_cmd, "/");
+            set_args(std::get<1>(pipe_instructions), read_cmd, "/");
+            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+        }
+        else if (redirect != -1) {
             std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
             std::vector<std::string> output_file = set_output(instructions, redirect);
             set_args(updated_instructions, exe_cmd, "/");
@@ -281,7 +417,16 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect) {
         std::string temp_path = PATH[i];
         instructions[0] = temp_path.append(s);
         if (exists(instructions[0])) {
-            if (redirect != -1) {
+            if(pipe_needed != -1) {
+                // We must parse the input accordingly
+                std::tuple<std::vector<std::string>, std::vector<std::string>> pipe_instructions = get_pipe_instructions(instructions, pipe_needed);
+                char * write_cmd[std::get<0>(pipe_instructions).size() + 1 ];
+                char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
+                set_args(std::get<0>(pipe_instructions), write_cmd, "/");
+                set_args(std::get<1>(pipe_instructions), read_cmd, "/");
+                run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+            }
+            else if (redirect != -1) {
                 std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
                 std::vector<std::string> output_file = set_output(instructions, redirect);
                 set_args(updated_instructions, exe_cmd, "/");
@@ -301,11 +446,12 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect) {
 // Check the path that was given by the user
 void checkPATH(std::vector<std::string> &instructions) {
     std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // This checks if the command asks for a redirect
+    int pipe_needed = needsPipe(instructions);
     // Next we will ask the user if a pipe is needed
     if (absPath(instructions)) { // Run a general command if no redirect needed
-        run_abs_cmd(std::get<1>(tup), std::get<0>(tup));
+        run_abs_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed);
     } else if (relPath(instructions)) { // Run a general command if no redirect needed
-        run_rel_cmd(std::get<1>(tup), std::get<0>(tup));
+        run_rel_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed);
     }
 }
 
@@ -316,9 +462,13 @@ void executeInstructions(std::vector<std::string> &instructions) {
     if (instructions[0] == "cd") {
         cd(instructions[1]);
     } else if (instructions[0] == "pwd"){
-        pwd();
+        std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // Handle redirects
+        // HANDLE PIPES
+        pwd(std::get<0>(tup), std::get<1>(tup));
     } else if (instructions[0] == "$PATH") {
-        show$PATH();
+        std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // Handle redirects
+        // Handle PIPEs
+        show$PATH(std::get<0>(tup), std::get<1>(tup));
     }else if (instructions[0] == "a2path"){
         appendToPath(instructions);
     }
@@ -329,7 +479,7 @@ void executeInstructions(std::vector<std::string> &instructions) {
         return;
     }
     else {
-        // Check if the command exists in the PATH, else command will not be found
+        // Check if the command exists in the PATH or in cwd, else command will not be found
         checkPATH(instructions);
     }
 }

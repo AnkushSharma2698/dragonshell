@@ -42,28 +42,40 @@ void print(std::vector<std::string> const &input) {
 void execute(std::vector<std::string> &command) {
     // Since there can be multiple commands, we will loop through them and tokenize them individually
     for (int i = 0; i < static_cast<int>(command.size());i++) {
-        std::vector<std::string> instruction = tokenize(command[i], "| ");
+        std::vector<std::string> instruction = tokenize(command[i], " ");
         executeInstructions(instruction);
     }
 }
 
+void signal_callback_handler(int signum) {
+    std::cout << signum << "\n";
+}
+
 // Driver of the code
 int main(int argc, char **argv) {
-  std::cout << "Welcome to Dragon Shell! \n";
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_handler = signal_callback_handler;
+    sigaction(SIGINT, &sa, NULL); // CTRL+C handling
+    sigaction(SIGSTOP, &sa, NULL);
 
-  while (true) {
+
+    std::cout << "Welcome to Dragon Shell! \n";
+
+    while (true) {
       std::string command;
       std::cout << "dragonshell > ";
 
       // Get user input
       getline(std::cin, command);
-      if(std::cin.eof()) { // Handling for ctrl + D
-          std::cout << "\n"; // Formatting
-          exitDragonShell();
-      } else {
-          // Parse the input and send it to check if it is a valid command
-          std::vector<std::string> tokenized_command = tokenize(command, ";");
-          execute(tokenized_command);
-      }
-  }
+      // Parse the input and send it to check if it is a valid command
+      std::vector<std::string> tokenized_command = tokenize(command, ";");
+      execute(tokenized_command);
+    }
 }
+
+//if(std::cin.eof()) { // Handling for ctrl + D
+//std::cout << "\n"; // Formatting
+//exitDragonShell();
+//} else {
