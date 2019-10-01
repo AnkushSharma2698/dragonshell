@@ -53,7 +53,7 @@ void execute(std::vector<std::string> &command) {
 void sighandler(int signum) {
     std::cout << "hadnling control c" << "\n";
     std::cout << signum << "\n";
-    
+
 }
 
 // Driver of the code
@@ -66,20 +66,13 @@ int main(int argc, char **argv) {
     // TODO add ctrl + z handling
 
     std::cout << "Welcome to Dragon Shell! \n";
-    while (true) {
-        std::string command;
+    std::string command;
+    std::cout << "dragonshell > ";
+    while (getline(std::cin, command)) {
+        std::vector<std::string> tokenized_command = tokenize(command, ";");
+        execute(tokenized_command);
         std::cout << "dragonshell > ";
-
-        // Get user input
-        getline(std::cin, command);
-        // Parse the input and send it to check if it is a valid command
-        if(std::cin.eof()) { // Handling for ctrl + D
-            std::cout << command<< "\n";
-            std::cout << "\n"; // Formatting
-            exitDragonShell();
-        } else {
-            std::vector<std::string> tokenized_command = tokenize(command, ";");
-            execute(tokenized_command);
-        }
     }
+    std::cout << "\n"; // Formatting
+    exitDragonShell();
 }
