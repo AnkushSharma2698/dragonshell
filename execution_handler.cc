@@ -125,7 +125,7 @@ std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::s
     }
     // If after an initial screen, redirect is not -1, return instructions in current state
     if (redirect != -1) {
-        return {redirect, instructions};
+        return std::make_tuple(redirect, instructions);
     }
 
     // Check for a substring
@@ -140,7 +140,7 @@ std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::s
 
         }
     }
-    return {redirect, instructions};
+    return std::make_tuple(redirect, instructions);
 }
 
 // Pointer to first position of the cmd args
@@ -359,7 +359,7 @@ std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instruct
     for (unsigned int i = pipe_index + 1; i < instructions.size(); i++) {
         pipe_to.push_back(instructions[i]);
     }
-    return {pipe_from, pipe_to};
+    return std::make_tuple(pipe_from, pipe_to);
 }
 
 // Runs absolute path commands
