@@ -51,8 +51,7 @@ void execute(std::vector<std::string> &command) {
 }
 
 void sighandler(int signum) {
-    std::cout << "hadnling control c" << "\n";
-    std::cout << signum << "\n";
+    std::cout << "hadnling control c";
 
 }
 
