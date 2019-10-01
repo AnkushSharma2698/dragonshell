@@ -241,7 +241,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
 // Parse the instructions to exclude the > or |
 std::vector<std::string> set_instructions(std::vector<std::string> &instructions, int position) {
     std::vector<std::string> new_instructions;
-    for (unsigned int i = 0; i < position; i++) {
+    for (int i = 0; i < position; i++) {
         new_instructions.push_back(std::string(instructions[i]));
     }
     return new_instructions;
@@ -351,7 +351,7 @@ std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instruct
         }
     }
 
-    for (unsigned int i = 0; i < pipe_index; i++) {
+    for (int i = 0; i < pipe_index; i++) {
         pipe_from.push_back(instructions[i]);
     }
     for (unsigned int i = pipe_index + 1; i < instructions.size(); i++) {
