@@ -13,6 +13,9 @@
  * @param delim - The string containing delimiter character(s)
  * @return std::vector<std::string> - The list of tokenized strings. Can be empty
  */
+
+void sighandler(int signum);
+
 std::vector<std::string> tokenize(const std::string &str, const char *delim) {
   char* cstr = new char[str.size() + 1];
   std::strcpy(cstr, str.c_str());
@@ -47,35 +50,36 @@ void execute(std::vector<std::string> &command) {
     }
 }
 
-void signal_callback_handler(int signum) {
+void sighandler(int signum) {
+    std::cout << "hadnling control c" << "\n";
     std::cout << signum << "\n";
+    
 }
 
 // Driver of the code
 int main(int argc, char **argv) {
     struct sigaction sa;
     sa.sa_flags = 0;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_handler = signal_callback_handler;
+    sigemptyset(&(sa.sa_mask));
+    sa.sa_handler = sighandler;
     sigaction(SIGINT, &sa, NULL); // CTRL+C handling
-    sigaction(SIGSTOP, &sa, NULL);
-
+    // TODO add ctrl + z handling
 
     std::cout << "Welcome to Dragon Shell! \n";
-
     while (true) {
-      std::string command;
-      std::cout << "dragonshell > ";
+        std::string command;
+        std::cout << "dragonshell > ";
 
-      // Get user input
-      getline(std::cin, command);
-      // Parse the input and send it to check if it is a valid command
-      std::vector<std::string> tokenized_command = tokenize(command, ";");
-      execute(tokenized_command);
+        // Get user input
+        getline(std::cin, command);
+        // Parse the input and send it to check if it is a valid command
+        if(std::cin.eof()) { // Handling for ctrl + D
+            std::cout << command<< "\n";
+            std::cout << "\n"; // Formatting
+            exitDragonShell();
+        } else {
+            std::vector<std::string> tokenized_command = tokenize(command, ";");
+            execute(tokenized_command);
+        }
     }
 }
-
-//if(std::cin.eof()) { // Handling for ctrl + D
-//std::cout << "\n"; // Formatting
-//exitDragonShell();
-//} else {
