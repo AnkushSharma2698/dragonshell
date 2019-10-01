@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <unistd.h>
 #include <signal.h>
@@ -31,7 +33,7 @@ std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
 
 // print method for a vector < -- Make sure to delete this code once you are done
 void printer(std::vector<std::string> const &input) {
-    for (int i = 0; i < input.size(); i++) {
+    for (unsigned int i = 0; i < input.size(); i++) {
         std::cout << i;
         std::cout << input.at(i) << ' ';
         }
