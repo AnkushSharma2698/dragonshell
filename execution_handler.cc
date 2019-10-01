@@ -63,12 +63,12 @@ void appendToPath(std::vector<std::string> &append) {
     }
     else if (tokenized_a2path[0] == "$PATH") {
         // Append whatever is passed in directly to the
-        for (int i = 1; i< tokenized_a2path.size();i++) {
+        for (unsigned int i = 1; i< tokenized_a2path.size();i++) {
             PATH.push_back(tokenized_a2path[i]);
         }
     } else {
         PATH = {};
-        for (int i = 0; i< tokenized_a2path.size();i++) {
+        for (unsigned int i = 0; i< tokenized_a2path.size();i++) {
             PATH.push_back(tokenized_a2path[i]);
         }
     }
@@ -77,7 +77,7 @@ void appendToPath(std::vector<std::string> &append) {
 void exitDragonShell() { // TODO ask about how exit will close the child processes and such before terminating itself.
     std::cout << "Exiting" << "\n";
     // Kill any running processes
-    for (int i = 0; i< processes.size();i++) {
+    for (unsigned int i = 0; i< processes.size();i++) {
         kill(processes[i], SIGTERM);
     }
     // Get the pid of the main process, and exit that at the end
@@ -104,7 +104,7 @@ bool relPath(std::vector<std::string> &instructions) {
 // Check if the given instructions contain a pipe symbol
 int needsPipe(std::vector<std::string> &instructions) {
     int needs_pipe = -1;
-    for (int i=0; i < instructions.size(); i++) {
+    for (unsigned int i=0; i < instructions.size(); i++) {
         if (instructions[i] == "|") {
             needs_pipe = i;
         }
@@ -114,7 +114,7 @@ int needsPipe(std::vector<std::string> &instructions) {
 
 std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::string> &instructions, std::string delim) {
     int redirect = -1;
-    for (int i=0; i < instructions.size(); i++) {
+    for (unsigned int i=0; i < instructions.size(); i++) {
         if (instructions[i] == delim) {
             instructions.erase(instructions.begin() + i);
             redirect = i;
@@ -127,7 +127,7 @@ std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::s
 
     // Check for a substring
     std::vector<std::string> delim_handler_vector;
-    for (int i=0; i< instructions.size(); i++) {
+    for (unsigned int i=0; i< instructions.size(); i++) {
         if (instructions[i].find(delim) != std::string::npos) {
             delim_handler_vector = tokenizer(instructions[i], delim.c_str());
             instructions.erase(instructions.begin() + i);
@@ -146,7 +146,7 @@ void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
     cmd[0] = (char *)first_arg[first_arg.size() - 1].c_str();
 
     // Add in any other required arguments
-    for (int i = 1; i < args.size() + 1; i++) {
+    for (unsigned int i = 1; i < args.size() + 1; i++) {
         cmd[i] = (char * )args[i].c_str();
     }
     // Add NULL at the end
@@ -240,7 +240,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
 // Parse the instructions to exclude the > or |
 std::vector<std::string> set_instructions(std::vector<std::string> &instructions, int position) {
     std::vector<std::string> new_instructions;
-    for (int i = 0; i < position; i++) {
+    for (unsigned int i = 0; i < position; i++) {
         new_instructions.push_back(std::string(instructions[i]));
     }
     return new_instructions;
@@ -253,7 +253,7 @@ std::vector<std::string> set_output(std::vector<std::string> &instructions, int 
         output.push_back("");
         return output;
     }
-    for (int i = position; i < instructions.size(); i++) {
+    for (unsigned int i = position; i < instructions.size(); i++) {
         output.push_back(instructions[i]);
     }
     return output;
@@ -291,7 +291,7 @@ void pwd(int redirect, std::vector<std::string> &instructions) {
 
 void show$PATH(int redirect, std::vector<std::string> &instructions) {
     std::string s = "Current Path: ";
-    for (int i = 0; i < PATH.size();i++) {
+    for (unsigned int i = 0; i < PATH.size();i++) {
         if (i + 1 == PATH.size()) {
             s = s + PATH[i];
         } else {
@@ -340,7 +340,7 @@ std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instruct
     std::string s = instructions[pipe_index + 1];
     if (instructions[pipe_index + 1][0] != '/') {
         if (exists(instructions[pipe_index + 1]) == false) {
-            for (int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
+            for (unsigned int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
                 std::string temp_path = PATH[i];
                 instructions[pipe_index + 1] = temp_path.append(s);
                 if (exists(instructions[pipe_index + 1])) {
@@ -350,10 +350,10 @@ std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instruct
         }
     }
 
-    for (int i = 0; i < pipe_index; i++) {
+    for (unsigned int i = 0; i < pipe_index; i++) {
         pipe_from.push_back(instructions[i]);
     }
-    for (int i = pipe_index + 1; i < instructions.size(); i++) {
+    for (unsigned int i = pipe_index + 1; i < instructions.size(); i++) {
         pipe_to.push_back(instructions[i]);
     }
     return {pipe_from, pipe_to};
@@ -415,7 +415,7 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
         cmd_exists = 1;
         return;
     }
-    for (int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
+    for (unsigned int i=0; i< PATH.size(); i++) { // This block compares the command against the PATH
         std::string temp_path = PATH[i];
         instructions[0] = temp_path.append(s);
         if (exists(instructions[0])) {
