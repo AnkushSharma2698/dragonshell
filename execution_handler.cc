@@ -10,6 +10,8 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "execution_handler.h"
 
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
