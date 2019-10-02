@@ -35,7 +35,7 @@ std::vector<std::string> tokenize(const std::string &str, const char *delim) {
 
 // print method for a vector < -- Make sure to delete this code once you are done
 void print(std::vector<std::string> const &input) {
-    for (int i = 0; i < input.size(); i++) {
+    for (unsigned int i = 0; i < input.size(); i++) {
         std::cout << i;
         std::cout << input.at(i) << ' ';
     }
@@ -51,17 +51,14 @@ void execute(std::vector<std::string> &command) {
 }
 
 void sighandler(int signum) {
-    std::cout << "hadnling control c";
-
+    killBackgroundProcesses();
+    std::cout << "\ndragonshell > " << std::flush;
 }
 
 // Driver of the code
 int main(int argc, char **argv) {
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sigemptyset(&(sa.sa_mask));
-    sa.sa_handler = sighandler;
-    sigaction(SIGINT, &sa, NULL); // CTRL+C handling
+    signal(SIGINT, sighandler);// CTRL+C handling
+    signal(SIGTSTP, sighandler);// CTRL+Z
     // TODO add ctrl + z handling
 
     std::cout << "Welcome to Dragon Shell! \n";

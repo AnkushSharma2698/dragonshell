@@ -88,6 +88,13 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     _exit(pid);
 }
 
+void killBackgroundProcesses() {
+    // Kill any running processes
+    for (unsigned int i = 0; i< processes.size();i++) {
+        kill(processes[i], SIGTERM);
+    }
+}
+
 // Check if the given path is an absolute path
 bool absPath(std::vector<std::string> &instructions) {
     if (instructions[0][0] == '/') {
@@ -113,6 +120,16 @@ int needsPipe(std::vector<std::string> &instructions) {
         }
     }
     return needs_pipe;
+}
+
+int isBackgroundProcess(std::vector<std::string> &instructions) {
+    int run_in_background = 0;
+    for (unsigned int i = 0; i < instructions.size(); i++) {
+        if (instructions[i] == "&") {
+            run_in_background = 1;
+        }
+    }
+    return run_in_background;
 }
 
 std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::string> &instructions, std::string delim) {
@@ -158,7 +175,8 @@ void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
 }
 
 // Run the external commands made by the user
-void general_cmd(std::vector<std::string> &instructions, char **cmd) {
+void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_background) {
+    int status;
     pid_t cid = fork();
     if (cid == -1) {
         perror("fork error");
@@ -166,6 +184,10 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd) {
     } else if (cid == 0){
         char *env[] = {NULL};
         int ret;
+        if (run_in_background) {
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+        }
         ret = execve (instructions[0].c_str(), cmd, env);
         if (ret == -1) {
             perror("Command Failed");
@@ -174,7 +196,12 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd) {
     }
     else {
         processes.push_back(cid);
-        wait(NULL);
+        if (run_in_background) {
+            std::cout << "PID " << cid << " is running in the background" << "\n";
+            waitpid(cid, &status, 0);
+        } else {
+            wait(NULL);
+        }
     }
 }
 
@@ -229,6 +256,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         close(fd);
         char *env[] = {NULL};
         int ret;
+
         ret = execve(instructions[0].c_str(), cmd, env);
         if (ret == -1) {
             perror("Command failed");
@@ -363,7 +391,7 @@ std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instruct
 }
 
 // Runs absolute path commands
-void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed) {
+void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed, int run_in_background) {
     int cmd_exists = 0;
     char * exe_cmd[instructions.size() + 1];
     if (exists(instructions[0])) {
@@ -382,7 +410,7 @@ void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
             run_redirect_cmd(updated_instructions, output_file, exe_cmd);
         } else { // No special handling needed here
             set_args(instructions, exe_cmd, "/");
-            general_cmd(instructions, exe_cmd);
+            general_cmd(instructions, exe_cmd, run_in_background);
         }
         cmd_exists = 1;
     }
@@ -392,7 +420,7 @@ void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
 }
 
 // Run relative path commands
-void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed) {
+void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_needed, int run_in_background) {
     int cmd_exists = 0;
     char * exe_cmd[instructions.size() + 1];
     std::string s = instructions[0];
@@ -413,7 +441,7 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
             run_redirect_cmd(updated_instructions, output_file, exe_cmd);
         } else {
             set_args(instructions, exe_cmd, "/"); // Set args for the cmd
-            general_cmd(instructions, exe_cmd);
+            general_cmd(instructions, exe_cmd, run_in_background);
         }
         cmd_exists = 1;
         return;
@@ -438,7 +466,7 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
                 run_redirect_cmd(updated_instructions, output_file, exe_cmd);
             } else {
                 set_args(instructions, exe_cmd, "/"); // Set args for the cmd
-                general_cmd(instructions, exe_cmd);
+                general_cmd(instructions, exe_cmd, run_in_background);
             }
             cmd_exists = 1;
         };
@@ -450,13 +478,14 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
 
 // Check the path that was given by the user
 void checkPATH(std::vector<std::string> &instructions) {
+    int run_in_background = isBackgroundProcess(instructions);
     std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // This checks if the command asks for a redirect
     int pipe_needed = needsPipe(instructions);
     // Next we will ask the user if a pipe is needed
     if (absPath(instructions)) { // Run a general command if no redirect needed
-        run_abs_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed);
+        run_abs_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed, run_in_background);
     } else if (relPath(instructions)) { // Run a general command if no redirect needed
-        run_rel_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed);
+        run_rel_cmd(std::get<1>(tup), std::get<0>(tup), pipe_needed, run_in_background);
     }
 }
 

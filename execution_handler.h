@@ -4,4 +4,5 @@
 #include <vector>
 void executeInstructions(std::vector<std::string> &instructions);
 void exitDragonShell();
+void  killBackgroundProcesses();
 #endif 
