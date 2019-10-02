@@ -33,15 +33,6 @@ std::vector<std::string> tokenize(const std::string &str, const char *delim) {
   return tokens;
 }
 
-// print method for a vector < -- Make sure to delete this code once you are done
-void print(std::vector<std::string> const &input) {
-    for (unsigned int i = 0; i < input.size(); i++) {
-        std::cout << i;
-        std::cout << input.at(i) << ' ';
-    }
-    std::cout << '\n';
-}
-
 void execute(std::vector<std::string> &command) {
     // Since there can be multiple commands, we will loop through them and tokenize them individually
     for (int i = 0; i < static_cast<int>(command.size());i++) {
@@ -59,7 +50,6 @@ void sighandler(int signum) {
 int main(int argc, char **argv) {
     signal(SIGINT, sighandler);// CTRL+C handling
     signal(SIGTSTP, sighandler);// CTRL+Z
-    // TODO add ctrl + z handling
 
     std::cout << "Welcome to Dragon Shell! \n";
     std::string command;

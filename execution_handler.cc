@@ -34,25 +34,16 @@ std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
     return tokens;
 }
 
-// print method for a vector < -- Make sure to delete this code once you are done
-void printer(std::vector<std::string> const &input) {
-    for (unsigned int i = 0; i < input.size(); i++) {
-        std::cout << i;
-        std::cout << input.at(i) << ' ';
-        }
-        std::cout << '\n';
-}
-
 // Combine fork and execve if u want to run an external program
 void cd(std::string str_path) {
     if (str_path == "") {
-        std::cout << "expected argument to \"cd\"" << "\n";
+        std::cout << "dragonshell: expected argument to \"cd\"" << "\n";
         return;
     }
     // Convert my string path to a const char *
     const char *path = str_path.c_str();
     if (chdir(path) != 0) {
-        std::cout << "No such file or directory" << "\n";
+        std::cout << "dragonshell: No such file or directory" << "\n";
     }
 };
 
@@ -206,8 +197,9 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
 }
 
 
-void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &pipe_out,char **in_cmd, char **out_cmd) {
+void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &pipe_out,char **in_cmd, char **out_cmd, int run_in_background) {
     pid_t pid;
+    int status;
     if ((pid = fork()) < 0) perror("fork error!");
     if (pid == 0) {
         pid_t pipe_pid;
@@ -220,6 +212,10 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
             close(fd[0]); // No reading
             dup2(fd[1], STDOUT_FILENO);
             close(fd[1]);
+            if (run_in_background) {
+                close(STDOUT_FILENO);
+                close(STDERR_FILENO);
+            }
             if (execve(pipe_in[0].c_str(), in_cmd, env) < 0) {
                 perror("stdout error!");
             }
@@ -230,18 +226,29 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
             close(fd[1]); // No writing
             dup2(fd[0], STDIN_FILENO); // stdin = fd[0]
             close(fd[0]);
+            if (run_in_background) {
+                close(STDOUT_FILENO);
+                close(STDERR_FILENO);
+            }
             if (execve(pipe_out[0].c_str(), out_cmd, env) < 0) {
                 perror("stdin error!");
             }
+
             _exit(0);
         }
     } else {
         processes.push_back(pid);
-        wait(NULL);
+        if (run_in_background) {
+            std::cout << "PID " << pid << " is running in the background" << "\n";
+            waitpid(pid, &status, 0);
+        } else {
+            wait(NULL);
+        }
     }
 }
 
-void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd) {
+void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd, int run_in_background) {
+    int status;
     pid_t cid = fork();
     if (cid == -1) {
         perror("fork error");
@@ -254,9 +261,12 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         dup2(fd, 1); // Send the stdout to the file
 
         close(fd);
+        if (run_in_background) {
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+        }
         char *env[] = {NULL};
         int ret;
-
         ret = execve(instructions[0].c_str(), cmd, env);
         if (ret == -1) {
             perror("Command failed");
@@ -264,7 +274,12 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         _exit(0);
     } else {
         processes.push_back(cid);
-        wait(NULL);
+        if (run_in_background) {
+            std::cout << "PID " << cid << " is running in the background" << "\n";
+            waitpid(cid, &status, 0);
+        } else {
+            wait(NULL);
+        }
     }
 }
 
@@ -402,12 +417,12 @@ void run_abs_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
             char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
             set_args(std::get<0>(pipe_instructions), write_cmd, "/");
             set_args(std::get<1>(pipe_instructions), read_cmd, "/");
-            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd, run_in_background);
         }else if (redirect != -1) {
             std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
             std::vector<std::string> output_file = set_output(instructions, redirect);
             set_args(updated_instructions, exe_cmd, "/");
-            run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+            run_redirect_cmd(updated_instructions, output_file, exe_cmd, run_in_background);
         } else { // No special handling needed here
             set_args(instructions, exe_cmd, "/");
             general_cmd(instructions, exe_cmd, run_in_background);
@@ -432,13 +447,13 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
             char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
             set_args(std::get<0>(pipe_instructions), write_cmd, "/");
             set_args(std::get<1>(pipe_instructions), read_cmd, "/");
-            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+            run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd, run_in_background);
         }
         else if (redirect != -1) {
             std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
             std::vector<std::string> output_file = set_output(instructions, redirect);
             set_args(updated_instructions, exe_cmd, "/");
-            run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+            run_redirect_cmd(updated_instructions, output_file, exe_cmd, run_in_background);
         } else {
             set_args(instructions, exe_cmd, "/"); // Set args for the cmd
             general_cmd(instructions, exe_cmd, run_in_background);
@@ -457,13 +472,13 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
                 char * read_cmd[std::get<1>(pipe_instructions).size() + 1 ];
                 set_args(std::get<0>(pipe_instructions), write_cmd, "/");
                 set_args(std::get<1>(pipe_instructions), read_cmd, "/");
-                run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd);
+                run_pipe_cmd(std::get<0>(pipe_instructions), std::get<1>(pipe_instructions), write_cmd, read_cmd, run_in_background);
             }
             else if (redirect != -1) {
                 std::vector<std::string> updated_instructions = set_instructions(instructions, redirect);
                 std::vector<std::string> output_file = set_output(instructions, redirect);
                 set_args(updated_instructions, exe_cmd, "/");
-                run_redirect_cmd(updated_instructions, output_file, exe_cmd);
+                run_redirect_cmd(updated_instructions, output_file, exe_cmd, run_in_background);
             } else {
                 set_args(instructions, exe_cmd, "/"); // Set args for the cmd
                 general_cmd(instructions, exe_cmd, run_in_background);
