@@ -219,9 +219,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDOUT_FILENO);
                 close(STDERR_FILENO);
             }
-            if (execve(pipe_in[0].c_str(), in_cmd, env) < 0) {
-                std::cout << "dragonshell: Command does not exist."<< '\n';
-            }
+            checkPath(pipe_in);
             _exit(0);
         } else {
             // In this parent is where we want to read the stdout from the child
@@ -233,9 +231,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDOUT_FILENO);
                 close(STDERR_FILENO);
             }
-            if (execve(pipe_out[0].c_str(), out_cmd, env) < 0) {
-                std::cout << "dragonshell: Command does not exist."<< '\n';
-            }
+            checkPath(pipe_out);
 
             _exit(0);
         }
