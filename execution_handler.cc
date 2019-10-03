@@ -190,7 +190,7 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
         if (run_in_background) {
             int status;
             std::cout << "PID " << cid << " is running in the background" << "\n";
-            waitpid(cid, &status, WNOHANG);
+            waitpid(cid, &status, 0);
         } else {
             processes.push_back(cid);
             wait(NULL);
@@ -242,7 +242,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
         if (run_in_background) {
             int status;
             std::cout << "PID " << pid << " is running in the background" << "\n";
-            waitpid(pid, &status, WNOHANG);
+            waitpid(pid, &status, 0);
         } else {
             processes.push_back(pid);
             wait(NULL);
@@ -279,7 +279,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         if (run_in_background) {
             int status;
             std::cout << "PID " << cid << " is running in the background" << "\n";
-            waitpid(cid, &status, WNOHANG);
+            waitpid(cid, &status, 0);
         } else {
             processes.push_back(cid);
             wait(NULL);
