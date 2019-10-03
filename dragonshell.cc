@@ -4,6 +4,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <signal.h>
+#include <csetjmp>
 #include "execution_handler.h"
 
 /**
@@ -15,7 +16,8 @@
  */
 
 void sighandler(int signum);
-
+pid_t dragonshell_pid = getpid();
+sigjmp_buf looper;
 std::vector<std::string> tokenize(const std::string &str, const char *delim) {
   char* cstr = new char[str.size() + 1];
   std::strcpy(cstr, str.c_str());
@@ -42,23 +44,42 @@ void execute(std::vector<std::string> &command) {
 }
 
 void sighandler(int signum) {
-    killBackgroundProcesses();
-    std::cout << "\ndragonshell > " << std::flush;
+//    killBackgroundProcesses();
+    if (getpid() != dragonshell_pid) {
+        kill(getpid(), signum);
+    }
+    siglongjmp(looper, -1);
+//    std::cout << '\n' <<std::flush;
 }
 
-// Driver of the code
-int main(int argc, char **argv) {
-    signal(SIGINT, sighandler);// CTRL+C handling
-    signal(SIGTSTP, sighandler);// CTRL+Z
-
-    std::cout << "Welcome to Dragon Shell! \n";
+void mainLoop() {
     std::string command;
-    std::cout << "dragonshell > ";
     while (getline(std::cin, command)) {
         std::vector<std::string> tokenized_command = tokenize(command, ";");
         execute(tokenized_command);
         std::cout << "dragonshell > ";
     }
-    std::cout << "\n"; // Formatting
+    std::cout << "\n";
     exitDragonShell();
+}
+
+// Driver of the code
+int main(int argc, char **argv) {
+//    signal(SIGINT, sighandler);// CTRL+C handling
+//    signal(SIGTSTP, sighandler);// CTRL+Z
+    struct sigaction s;
+    s.sa_handler = sighandler;
+    sigemptyset(&s.sa_mask);
+    s.sa_flags=0;
+    sigaction(SIGINT, &s, 0);
+    sigaction(SIGTSTP, &s, 0);
+
+    std::cout << "Welcome to Dragon Shell! \n";
+    std::cout << "dragonshell > ";
+    if (sigsetjmp(looper, 1) == -1) {
+        std::cout << "\ndragonshell > ";
+        mainLoop();
+        _exit(1);
+    }
+    mainLoop();
 }

@@ -15,7 +15,7 @@
 #include "execution_handler.h"
 
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
-std::vector<pid_t> processes = {};
+std::vector<pid_t> processes = {}; // Hold the pid of all children processes that are created
 
 std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
     char* cstr = new char[str.size() + 1];
@@ -74,6 +74,7 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     for (unsigned int i = 0; i< processes.size();i++) {
         kill(processes[i], SIGTERM);
     }
+    processes = {};
     // Get the pid of the main process, and exit that at the end
     pid_t pid = getpid();
     _exit(pid);
@@ -84,6 +85,7 @@ void killBackgroundProcesses() {
     for (unsigned int i = 0; i< processes.size();i++) {
         kill(processes[i], SIGTERM);
     }
+    processes = {};
 }
 
 // Check if the given path is an absolute path
@@ -186,11 +188,11 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
         _exit(0);
     }
     else {
-        processes.push_back(cid);
         if (run_in_background) {
             std::cout << "PID " << cid << " is running in the background" << "\n";
             waitpid(cid, &status, WNOHANG);
         } else {
+            processes.push_back(cid);
             wait(NULL);
         }
     }
@@ -242,6 +244,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
             std::cout << "PID " << pid << " is running in the background" << "\n";
             waitpid(pid, &status, WNOHANG);
         } else {
+            processes.push_back(pid);
             wait(NULL);
         }
     }
@@ -278,6 +281,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
             std::cout << "PID " << cid << " is running in the background" << "\n";
             waitpid(cid, &status, WNOHANG);
         } else {
+            processes.push_back(cid);
             wait(NULL);
         }
     }
@@ -494,6 +498,9 @@ void run_rel_cmd(std::vector<std::string> &instructions, int redirect, int pipe_
 // Check the path that was given by the user
 void checkPATH(std::vector<std::string> &instructions) {
     int run_in_background = isBackgroundProcess(instructions);
+    if (run_in_background) {
+        instructions[instructions.size()-1] = " ";
+    }
     std::tuple<int, std::vector<std::string>> tup = needsOutputRedirect(instructions, ">"); // This checks if the command asks for a redirect
     int pipe_needed = needsPipe(instructions);
     // Next we will ask the user if a pipe is needed
