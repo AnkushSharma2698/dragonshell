@@ -14,8 +14,6 @@
 #include <sys/wait.h>
 #include "execution_handler.h"
 
-void checkPath(std::vector<std::string> &instructions);
-
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
 std::vector<pid_t> processes = {}; // Hold the pid of all children processes that are created
 
@@ -219,7 +217,9 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDOUT_FILENO);
                 close(STDERR_FILENO);
             }
-            checkPath(pipe_in);
+            if (execve(pipe_in[0].c_str(), in_cmd, env) < 0) {
+                std::cout << "dragonshell: Command does not exist."<< '\n';
+            }
             _exit(0);
         } else {
             // In this parent is where we want to read the stdout from the child
@@ -231,7 +231,9 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDOUT_FILENO);
                 close(STDERR_FILENO);
             }
-            checkPath(pipe_out);
+            if (execve(pipe_out[0].c_str(), out_cmd, env) < 0) {
+                std::cout << "dragonshell: Command does not exist."<< '\n';
+            }
 
             _exit(0);
         }
