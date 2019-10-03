@@ -181,7 +181,7 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
         }
         ret = execve (instructions[0].c_str(), cmd, env);
         if (ret == -1) {
-            perror("Command Failed");
+            std::cout << "dragonshell: Command does not exist."<< '\n';
         }
         _exit(0);
     }
@@ -189,7 +189,7 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
         processes.push_back(cid);
         if (run_in_background) {
             std::cout << "PID " << cid << " is running in the background" << "\n";
-            waitpid(cid, &status, 0);
+            waitpid(cid, &status, WNOHANG);
         } else {
             wait(NULL);
         }
@@ -217,7 +217,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDERR_FILENO);
             }
             if (execve(pipe_in[0].c_str(), in_cmd, env) < 0) {
-                perror("stdout error!");
+                std::cout << "dragonshell: Command does not exist."<< '\n';
             }
             _exit(0);
         } else {
@@ -231,7 +231,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
                 close(STDERR_FILENO);
             }
             if (execve(pipe_out[0].c_str(), out_cmd, env) < 0) {
-                perror("stdin error!");
+                std::cout << "dragonshell: Command does not exist."<< '\n';
             }
 
             _exit(0);
@@ -240,7 +240,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
         processes.push_back(pid);
         if (run_in_background) {
             std::cout << "PID " << pid << " is running in the background" << "\n";
-            waitpid(pid, &status, 0);
+            waitpid(pid, &status, WNOHANG);
         } else {
             wait(NULL);
         }
@@ -269,14 +269,14 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
         int ret;
         ret = execve(instructions[0].c_str(), cmd, env);
         if (ret == -1) {
-            perror("Command failed");
+            std::cout << "dragonshell: Command does not exist."<< '\n';
         }
         _exit(0);
     } else {
         processes.push_back(cid);
         if (run_in_background) {
             std::cout << "PID " << cid << " is running in the background" << "\n";
-            waitpid(cid, &status, 0);
+            waitpid(cid, &status, WNOHANG);
         } else {
             wait(NULL);
         }
