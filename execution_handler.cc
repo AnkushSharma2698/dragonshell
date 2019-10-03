@@ -14,6 +14,8 @@
 #include <sys/wait.h>
 #include "execution_handler.h"
 
+void checkPath(std::vector<std::string> &instructions);
+
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
 std::vector<pid_t> processes = {}; // Hold the pid of all children processes that are created
 
@@ -169,7 +171,6 @@ void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
 
 // Run the external commands made by the user
 void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_background) {
-    int status;
     pid_t cid = fork();
     if (cid == -1) {
         perror("fork error");
@@ -189,6 +190,7 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
     }
     else {
         if (run_in_background) {
+            int status;
             std::cout << "PID " << cid << " is running in the background" << "\n";
             waitpid(cid, &status, WNOHANG);
         } else {
@@ -201,7 +203,6 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
 
 void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &pipe_out,char **in_cmd, char **out_cmd, int run_in_background) {
     pid_t pid;
-    int status;
     if ((pid = fork()) < 0) perror("fork error!");
     if (pid == 0) {
         pid_t pipe_pid;
@@ -241,6 +242,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
     } else {
         processes.push_back(pid);
         if (run_in_background) {
+            int status;
             std::cout << "PID " << pid << " is running in the background" << "\n";
             waitpid(pid, &status, WNOHANG);
         } else {
@@ -251,7 +253,6 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
 }
 
 void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd, int run_in_background) {
-    int status;
     pid_t cid = fork();
     if (cid == -1) {
         perror("fork error");
@@ -278,6 +279,7 @@ void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::s
     } else {
         processes.push_back(cid);
         if (run_in_background) {
+            int status;
             std::cout << "PID " << cid << " is running in the background" << "\n";
             waitpid(cid, &status, WNOHANG);
         } else {

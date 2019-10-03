@@ -18,6 +18,7 @@
 void sighandler(int signum);
 pid_t dragonshell_pid = getpid();
 sigjmp_buf looper;
+
 std::vector<std::string> tokenize(const std::string &str, const char *delim) {
   char* cstr = new char[str.size() + 1];
   std::strcpy(cstr, str.c_str());
@@ -49,7 +50,6 @@ void sighandler(int signum) {
         kill(getpid(), signum);
     }
     siglongjmp(looper, -1);
-//    std::cout << '\n' <<std::flush;
 }
 
 void mainLoop() {
@@ -65,8 +65,6 @@ void mainLoop() {
 
 // Driver of the code
 int main(int argc, char **argv) {
-//    signal(SIGINT, sighandler);// CTRL+C handling
-//    signal(SIGTSTP, sighandler);// CTRL+Z
     struct sigaction s;
     s.sa_handler = sighandler;
     sigemptyset(&s.sa_mask);
