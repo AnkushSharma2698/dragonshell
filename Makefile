@@ -3,6 +3,6 @@ dragonshell: dragonshell.cc compile
 compile: dragonshell.cc
 	g++ -c -Wall -std=c++11 dragonshell.cc
 clean:
-	rm -f dragonshell dragonshell.o
+	rm -f dragonshell dragonshell.o compile
 compress: dragonshell.cc readme.md
-	tar -czf dragonshell.tar.gz readme.md dragonshell.cc
+	tar -czf dragonshell.tar.gz readme.md dragonshell.cc Makefile
