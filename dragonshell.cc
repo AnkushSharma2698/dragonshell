@@ -62,12 +62,15 @@ void cd(std::string str_path) {
 void appendToPath(std::vector<std::string> &append) {
     // Now that we are in the appending block we must ensure that we are getting adequate values
     // If no $PATH, ensure that we are given a path to overwrite the global $PATH
-    std::vector<std::string> tokenized_a2path = tokenizer(append[1], ":");
-    // Check if the first item in the tokenized a2path is a $PATH variable, because then we would append
-    if (tokenized_a2path.size() == 0) {
-        PATH = {""}; // Overwrite the path vector completely
+    std::vector<std::string> tokenized_a2path;
+    if (append.size() > 1) {
+        std::vector<std::string> tokenized_a2path = tokenizer(append[1], ":");
+    } else {
+        PATH = {""};
+        return;
     }
-    else if (tokenized_a2path[0] == "$PATH") {
+    
+    if (tokenized_a2path[0] == "$PATH") {
         // Append whatever is passed in directly to the
         for (unsigned int i = 1; i< tokenized_a2path.size();i++) {
             PATH.push_back(tokenized_a2path[i]);
