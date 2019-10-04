@@ -5,21 +5,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <csetjmp>
-#include <iostream>
-#include <vector>
 #include <map>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <signal.h>
 #include <fstream>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "execution_handler.h"
 
 /**
  * @brief Tokenize a string 
