@@ -23,13 +23,14 @@
  */
 
 
-void sighandler(int signum);
-pid_t dragonshell_pid = getpid();
+void sighandler(int signum); // Prototype for the signal handler
+
+pid_t dragonshell_pid = getpid(); // Used to hold the main process pid
 sigjmp_buf looper;
 std::vector<std::string> PATH = {"/bin/",  "/usr/bin/"}; // Global variable storing the current PATH var of the shell
 std::vector<pid_t> processes = {}; // Hold the pid of all children processes that are created
 
-std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
+std::vector<std::string> tokenize(const std::string &str, const char *delim) {
     char* cstr = new char[str.size() + 1];
     std::strcpy(cstr, str.c_str());
 
@@ -46,7 +47,7 @@ std::vector<std::string> tokenizer(const std::string &str, const char *delim) {
     return tokens;
 }
 
-// Combine fork and execve if u want to run an external program
+// Used for the change directory command
 void cd(std::string str_path) {
     if (str_path == "") {
         std::cout << "dragonshell: expected argument to \"cd\"" << "\n";
@@ -59,12 +60,13 @@ void cd(std::string str_path) {
     }
 };
 
+// Used for the a2path command
 void appendToPath(std::vector<std::string> &append) {
     // Now that we are in the appending block we must ensure that we are getting adequate values
     // If no $PATH, ensure that we are given a path to overwrite the global $PATH
     std::vector<std::string> tokenized_a2path;
     if (append.size() > 1) {
-        std::vector<std::string> tokenized_a2path = tokenizer(append[1], ":");
+        std::vector<std::string> tokenized_a2path = tokenize(append[1], ":");
     } else {
         PATH = {""};
         return;
@@ -83,7 +85,7 @@ void appendToPath(std::vector<std::string> &append) {
     }
 }
 
-void exitDragonShell() { // TODO ask about how exit will close the child processes and such before terminating itself.
+void exitDragonShell() { //  exit will close the child processes and such before terminating itself.
     std::cout << "Exiting" << "\n";
     // Kill any running processes
     for (unsigned int i = 0; i< processes.size();i++) {
@@ -95,6 +97,7 @@ void exitDragonShell() { // TODO ask about how exit will close the child process
     _exit(pid);
 }
 
+//Used to kill any extraneous procecesses
 void killBackgroundProcesses() {
     // Kill any running processes
     for (unsigned int i = 0; i< processes.size();i++) {
@@ -130,6 +133,7 @@ int needsPipe(std::vector<std::string> &instructions) {
     return needs_pipe;
 }
 
+// Checks if the current cmd is a background process
 int isBackgroundProcess(std::vector<std::string> &instructions) {
     int run_in_background = 0;
     for (unsigned int i = 0; i < instructions.size(); i++) {
@@ -140,6 +144,7 @@ int isBackgroundProcess(std::vector<std::string> &instructions) {
     return run_in_background;
 }
 
+// Checks if the given string needs output redirection
 std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::string> &instructions, std::string delim) {
     int redirect = -1;
     for (unsigned int i=0; i < instructions.size(); i++) {
@@ -157,7 +162,7 @@ std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::s
     std::vector<std::string> delim_handler_vector;
     for (unsigned int i=0; i< instructions.size(); i++) {
         if (instructions[i].find(delim) != std::string::npos) {
-            delim_handler_vector = tokenizer(instructions[i], delim.c_str());
+            delim_handler_vector = tokenize(instructions[i], delim.c_str());
             instructions.erase(instructions.begin() + i);
             instructions.insert(instructions.end(), delim_handler_vector.begin(), delim_handler_vector.end());
             redirect = instructions.size() - 1;
@@ -170,7 +175,7 @@ std::tuple<int, std::vector<std::string>> needsOutputRedirect(std::vector<std::s
 
 // Pointer to first position of the cmd args
 void set_args(std::vector<std::string> &args, char ** cmd, const char * delim) {
-    std::vector<std::string> first_arg = tokenizer(args[0], delim);
+    std::vector<std::string> first_arg = tokenize(args[0], delim);
     cmd[0] = (char *)first_arg[first_arg.size() - 1].c_str();
 
     // Add in any other required arguments
@@ -214,7 +219,7 @@ void general_cmd(std::vector<std::string> &instructions, char **cmd, int run_in_
     }
 }
 
-
+// Pipe command executer
 void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &pipe_out,char **in_cmd, char **out_cmd, int run_in_background) {
     pid_t pid;
     if ((pid = fork()) < 0) perror("fork error!");
@@ -267,6 +272,7 @@ void run_pipe_cmd(std::vector<std::string> &pipe_in, std::vector<std::string> &p
     }
 }
 
+// Redirect command executer
 void run_redirect_cmd(std::vector<std::string> &instructions, std::vector<std::string> &output_file,char ** cmd, int run_in_background) {
     pid_t cid = fork();
     if (cid == -1) {
@@ -327,6 +333,7 @@ std::vector<std::string> set_output(std::vector<std::string> &instructions, int 
     return output;
 }
 
+// USED to handle the pwd command in code
 void pwd(int redirect, std::vector<std::string> &instructions) {
     if (redirect != -1) { // Handle redirect case
         pid_t cid = fork();
@@ -357,6 +364,8 @@ void pwd(int redirect, std::vector<std::string> &instructions) {
 
 };
 
+
+// Used to handle the $PATH command in the code
 void show$PATH(int redirect, std::vector<std::string> &instructions) {
     std::string s = "Current Path: ";
     for (unsigned int i = 0; i < PATH.size();i++) {
@@ -400,6 +409,8 @@ bool exists(std::string path) {
     }
 }
 
+
+// Parses the inputs so a pipe can handle it
 std::tuple<std::vector<std::string>, std::vector<std::string>> get_pipe_instructions(std::vector<std::string> &instructions, int pipe_index) {
     std::vector<std::string> pipe_from;
     std::vector<std::string> pipe_to;
@@ -558,23 +569,7 @@ void executeInstructions(std::vector<std::string> &instructions) {
     }
 }
 
-std::vector<std::string> tokenize(const std::string &str, const char *delim) {
-  char* cstr = new char[str.size() + 1];
-  std::strcpy(cstr, str.c_str());
-
-  char* tokenized_string = strtok(cstr, delim);
-
-  std::vector<std::string> tokens;
-  while (tokenized_string != NULL)
-  {
-    tokens.push_back(std::string(tokenized_string));
-    tokenized_string = strtok(NULL, delim);
-  }
-  delete[] cstr;
-
-  return tokens;
-}
-
+// Loops through the command input becuase there may be multiple commands
 void execute(std::vector<std::string> &command) {
     // Since there can be multiple commands, we will loop through them and tokenize them individually
     for (int i = 0; i < static_cast<int>(command.size());i++) {
@@ -583,6 +578,7 @@ void execute(std::vector<std::string> &command) {
     }
 }
 
+// Handler for ctrl + z or ctrl + c signals
 void sighandler(int signum) {
     if (getpid() != dragonshell_pid) {
         kill(getpid(), signum);
@@ -593,11 +589,13 @@ void sighandler(int signum) {
 void mainLoop() {
     std::string command;
     while (getline(std::cin, command)) {
+        // This loop is used to kill zombie processes
         for (unsigned int i =0 ; i< processes.size(); i++ ) {
             int status;
             waitpid(processes[i], &status, WNOHANG);
         }
 
+        // Execute commands here and parse them initially by semicolon to run them one at a time
         std::vector<std::string> tokenized_command = tokenize(command, ";");
         execute(tokenized_command);
         std::cout << "dragonshell > ";
