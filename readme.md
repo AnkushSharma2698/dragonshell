@@ -1,9 +1,3 @@
-Assignment 1 Readme: ankush1
-
-A plain text document, called readme.md, which explains your design choices, lists the system calls you
-used to implement each of the required features, and elaborates on how you tested your implementation.
-Make sure you cite all sources that contributed to your assignment in this file. You may use a markup
-language, such as Markdown, to format this plain text file.
 
 Features:
 - cd:
@@ -44,22 +38,4 @@ Features:
     - To handle signals I utilized sigaction(). The handler that I implemented handles both SIGINT(CTRL+C) as well as 
     SIGTSTP(CTRL+Z). Implementation details: When one of the keyboard interrupts is detected, kill any process running in the foreground,
     excluding dragonshell itself; Then return to the main while loop to continue dragonshell.
-         
-         
-Design Choices:
-    - I decided to have a order of priority approach in tokenization. First I did tokenization by ";" to be able to handle multiple
-    commands which are then iterated through. Then I handle either a pipe or redirect case using an if-else block. During running, I have a
-    for loop running inside the main while loop that consistently checks for processes so that zombie processes do not remain if there
-    were processes running in the background.
-    - I split the command executing function into general, redirect and pipe methods to create a separation of concerns to 
-    make the code easier to handle on a case by case basis.
-
-Testing Methods:
-    - In order to test dragonshell, I utilized all of the test cases that were given in the assignment description,
-    as well as the cases that were shown on the discussion forum. I also created several files with differing inputs and 
-    outputs to test redirect and pipes.
-    
-Sources:
-    - Lab Slides
-    - Lecture Notes
     
